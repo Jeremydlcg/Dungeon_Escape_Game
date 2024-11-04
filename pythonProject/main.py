@@ -1,4 +1,5 @@
 import pygame
+from numpy import character
 from pygame import mixer
 import constantes as cons
 from character import Character
@@ -232,7 +233,7 @@ enemy_list = world.character_list
 arco = Weapons(imagen_arco,imagen_flecha)
 
 #Nombre del juego
-pygame.display.set_caption('Dungeon Crawler')
+pygame.display.set_caption('Dungeon Escape')
 
 #Variables para controlar el jugador
 mover_arriba = False
@@ -314,6 +315,7 @@ while run:
                 item_group.update(screen_scroll,player,coin_fx,heal_fx)
                 fireball_group.update(screen_scroll,player)
 
+
                 #Actualizacion enemigo
                 for enemigo in enemy_list:
                     fireball = enemigo.inteligencia_artificial(player,world.obstacle_tiles,screen_scroll,imagen_bolaFuego)
@@ -342,30 +344,33 @@ while run:
 
             #Verificar
             if nivel_completado == True:
-                start_intro = True
-                level +=1
-                world_data = reset_level()
-                # Cargar los datos de los niveles a traves de los csv
-                with open(f"levels/level{level}_data.csv", newline='') as csvfile:
-                    reader = csv.reader(csvfile, delimiter=',')
-                    for x, row in enumerate(reader):
-                        for y, tile in enumerate(row):
-                            world_data[x][y] = int(tile)
+                if level == 3:
+                    start_game = False
+                else:
+                    start_intro = True
+                    level +=1
+                    world_data = reset_level()
+                    # Cargar los datos de los niveles a traves de los csv
+                    with open(f"levels/level{level}_data.csv", newline='') as csvfile:
+                        reader = csv.reader(csvfile, delimiter=',')
+                        for x, row in enumerate(reader):
+                            for y, tile in enumerate(row):
+                                world_data[x][y] = int(tile)
 
-                temp_hp = player.salud
-                temp_score = player.score
+                    temp_hp = player.salud
+                    temp_score = player.score
 
-                world = World()
-                world.process_data(world_data, tile_list, item_images, animacion_mob)
-                player = world.player
-                player.salud = temp_hp
-                player.score = temp_score
-                enemy_list = world.character_list
-                score_gem = Item(cons.ANCHO_VENTANA - 115, 23, 1, lista_gema, True)
-                item_group.add(score_gem)
+                    world = World()
+                    world.process_data(world_data, tile_list, item_images, animacion_mob)
+                    player = world.player
+                    player.salud = temp_hp
+                    player.score = temp_score
+                    enemy_list = world.character_list
+                    score_gem = Item(cons.ANCHO_VENTANA - 115, 23, 1, lista_gema, True)
+                    item_group.add(score_gem)
 
-                for item in world.item_list:
-                    item_group.add(item)
+                    for item in world.item_list:
+                        item_group.add(item)
 
             #Mostrar Intro
             if start_intro == True:

@@ -1,84 +1,44 @@
-class BTNode:
+# behavior_tree.py
+class Node:
     def __init__(self):
-        self.status = "ready"  # ready, running, success, failure
+        self.children = []
 
-    def run(self):
-        if self.status != "running":
-            self.reset()
-        return self.process()
+    def add_child(self, child):
+        self.children.append(child)
 
-    def reset(self):
-        self.status = "ready"
-
-    def process(self):
-        return "success"
+    def execute(self):
+        raise NotImplementedError("This method should be overridden by subclasses")
 
 
-class Sequence(BTNode):
-    def __init__(self, children=None):
-        super().__init__()
-        self.children = children or []
-
-    def process(self):
-        if not self.children:
-            return "success"
-
+class Selector(Node):
+    def execute(self):
         for child in self.children:
-            status = child.run()
-
-            if status == "running":
-                self.status = "running"
-                return "running"
-            elif status == "failure":
-                self.status = "failure"
-                return "failure"
-
-        self.status = "success"
-        return "success"
+            if child.execute():
+                return True
+        return False
 
 
-class Selector(BTNode):
-    def __init__(self, children=None):
-        super().__init__()
-        self.children = children or []
-
-    def process(self):
-        if not self.children:
-            return "failure"
-
+class Sequence(Node):
+    def execute(self):
         for child in self.children:
-            status = child.run()
-
-            if status == "running":
-                self.status = "running"
-                return "running"
-            elif status == "success":
-                self.status = "success"
-                return "success"
-
-        self.status = "failure"
-        return "failure"
+            if not child.execute():
+                return False
+        return True
 
 
-class Action(BTNode):
-    def __init__(self, action_func):
-        super().__init__()
-        self.action_func = action_func
-
-    def process(self):
-        status = self.action_func()
-        self.status = status
-        return status
-
-
-class Condition(BTNode):
+class Condition(Node):
     def __init__(self, condition_func):
         super().__init__()
         self.condition_func = condition_func
 
-    def process(self):
-        if self.condition_func():
-            self.status = "success"
-            return "success"
-        self.status = "failure"
-        return "failure"
+    def execute(self):
+        return self.condition_func()
+
+
+class Action(Node):
+    def __init__(self, action_func):
+        super().__init__()
+        self.action_func = action_func
+
+    def execute(self):
+        return self.action_func()
