@@ -1,5 +1,4 @@
 import pygame
-from numpy import character
 from pygame import mixer
 import constantes as cons
 from character import Character
@@ -19,7 +18,7 @@ ventana = pygame.display.set_mode((cons.ANCHO_VENTANA, cons.ALTO_VENTANA))
 font = pygame.font.Font("assets/fonts/SIXTY.TTF", 20)
 
 #definir niveles del juego
-level = 1
+level = 3
 start_game = False
 pause_game = False
 start_intro = False
@@ -44,6 +43,9 @@ coin_fx = pygame.mixer.Sound('assets/audio/coin.wav')
 coin_fx.set_volume(0.5)
 heal_fx = pygame.mixer.Sound('assets/audio/heal.wav')
 heal_fx.set_volume(0.5)
+#boss music
+boss_fx = pygame.mixer.Sound('assets/audio/boss.ogg')
+boss_fx.set_volume(0.5)
 
 #Cargar imagenes de los personajes e items
 animacion_mob = []
@@ -123,18 +125,52 @@ def draw_info():
     dibujar_texto(f"N I V E L :   {level}",font, cons.BLANCO, cons.ANCHO_VENTANA / 2, 15)
 
 #Funcion para resetear el nivel
-def reset_level():
+def reset_game():
+    global level, player, world, enemy_list, damage_text_group, arrow_group, item_group, fireball_group
+
+    # Resetear nivel
+    level = 1
+    
+    # Limpiar todos los grupos de sprites
     damage_text_group.empty()
     arrow_group.empty()
     item_group.empty()
     fireball_group.empty()
 
-    #crear lista vacia de los tiles
-    data = []
+    # Cargar datos del nivel 1
+    world_data = []
     for row in range(cons.ROWS):
         rows = [-1] * cons.COLS
-        data.append(rows)
-    return data
+        world_data.append(rows)
+
+    # Cargar el nivel desde el archivo CSV
+    with open(f"levels/level{level}_data.csv", newline='') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        for x, row in enumerate(reader):
+            for y, tile in enumerate(row):
+                world_data[x][y] = int(tile)
+
+    # Crear nuevo mundo
+    world = World()
+    world.process_data(world_data, tile_list, item_images, animacion_mob)
+
+    # Obtener el jugador y enemigos del nuevo mundo
+    player = world.player
+    enemy_list = world.character_list
+
+    # Reiniciar música
+    pygame.mixer.music.play(-1, 0.0, 9000)
+    boss_fx.stop()
+
+    # Recrear el item de score
+    score_gem = Item(cons.ANCHO_VENTANA - 115, 23, 1, lista_gema, True)
+    item_group.empty()
+    item_group.add(score_gem)
+    for item in world.item_list:
+        item_group.add(item)
+
+    return True
+
 
 #Clase para el texto del daño
 class DamageText(pygame.sprite.Sprite):
@@ -252,17 +288,26 @@ restart_button = Button(cons.ANCHO_VENTANA // 2 - 175, cons.ALTO_VENTANA // 2 - 
 resume_button = Button(cons.ANCHO_VENTANA // 2 - 175, cons.ALTO_VENTANA // 2 - 150, resume_image)
 
 reloj = pygame.time.Clock()
+
+
 #Main GameLoop
+
 run = True
 while run:
     events = pygame.event.get()
 
     reloj.tick(cons.FPS)
 
+
+    if level == 3 and not boss_fx.get_num_channels():
+        pygame.mixer.music.stop()
+        boss_fx.play(-1)
+
+
     if start_game == False:
         ventana.blit(menu_background,(0,0))
         if start_button.draw(ventana):
-            start_game = True
+            start_game = reset_game() 
             start_intro = True
         if exit_button.draw(ventana):
             run = False
@@ -312,6 +357,7 @@ while run:
                         damage_text_group.add(damage_text)
 
                 damage_text_group.update()
+                arrow_group.update(screen_scroll, world.obstacle_tiles, enemy_list)
                 item_group.update(screen_scroll,player,coin_fx,heal_fx)
                 fireball_group.update(screen_scroll,player)
 
@@ -321,7 +367,7 @@ while run:
                     fireball = enemigo.inteligencia_artificial(player,world.obstacle_tiles,screen_scroll,imagen_bolaFuego)
                     if fireball:
                         fireball_group.add(fireball)
-                    enemigo.update_animation()
+                    
 
             #Dibujar personaje
             world.draw(ventana)
@@ -341,15 +387,21 @@ while run:
             item_group.draw(ventana)
             draw_info()
             score_gem.draw(ventana)
+            fireball_group.draw(ventana)
 
             #Verificar
             if nivel_completado == True:
+                start_intro = True
                 if level == 3:
                     start_game = False
+                    boss_fx.stop()
+                    pygame.mixer.music.play(-1, 0.0, 9000)
                 else:
-                    start_intro = True
                     level +=1
-                    world_data = reset_level()
+                    world_data = []
+                    for row in range(cons.ROWS):
+                        rows = [-1] * cons.COLS
+                        world_data.append(rows)
                     # Cargar los datos de los niveles a traves de los csv
                     with open(f"levels/level{level}_data.csv", newline='') as csvfile:
                         reader = csv.reader(csvfile, delimiter=',')
@@ -368,6 +420,7 @@ while run:
                     enemy_list = world.character_list
                     score_gem = Item(cons.ANCHO_VENTANA - 115, 23, 1, lista_gema, True)
                     item_group.add(score_gem)
+                    
 
                     for item in world.item_list:
                         item_group.add(item)
@@ -383,7 +436,7 @@ while run:
                     if restart_button.draw(ventana):
                         death_fade.fade_counter = 0
                         start_intro = True
-                        world_data = reset_level()
+                        world_data = reset_game()
                         # Cargar los datos de los niveles a traves de los csv
                         with open(f"levels/level{level}_data.csv", newline='') as csvfile:
                             reader = csv.reader(csvfile, delimiter=',')

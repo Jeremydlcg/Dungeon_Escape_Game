@@ -3,6 +3,7 @@ import math
 import constantes as cons
 import random
 
+
 class Weapons:
     def __init__(self, image,arrow_image):
         self.original_image = image
@@ -88,39 +89,61 @@ class Flecha(pygame.sprite.Sprite):
 class Fireball(pygame.sprite.Sprite):
     def __init__(self,image,x,y,target_x,target_y):
         pygame.sprite.Sprite.__init__(self)
-        x_dist = target_x - x
-        y_dist = -(target_y - y)
-        self.angle = math.degrees(math.atan2(y_dist, x_dist))
         self.original_image = image
-        self.imagen = pygame.transform.rotate(self.original_image, self.angle)
-        self.forma = self.imagen.get_rect()
-        self.forma.center = (x,y)
-        #calcular la velocidad vertical y horizontal basada en el angulo
-        self.dx = math.cos(math.radians(self.angle)) * cons.FIREBALL_SPEED
-        self.dy = -(math.sin(math.radians(self.angle)) * cons.FIREBALL_SPEED)
+        self.image = self.original_image
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.speed = 8
+        # Calcular dirección hacia el objetivo
+        self.dx = target_x - x
+        self.dy = target_y - y
+        self.x = float(x)  # Posición flotante para movimiento más preciso
+        self.y = float(y)
+
+        # Calcular dirección hacia el objetivo
+        dx = target_x - x
+        dy = target_y - y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 0:
+            self.dx = dx / dist * self.speed
+            self.dy = dy / dist * self.speed
+        else:
+            self.dx = 0
+            self.dy = 0
+
+        self.angle = math.degrees(math.atan2(-self.dy, self.dx))
+        self.image = pygame.transform.rotate(self.original_image, self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
+
 
     def update(self,screen_scroll, player):
 
-        self.forma.x += screen_scroll[0]
-        self.forma.y += screen_scroll[1]
+        # Mover la bola de fuego
+        self.rect.x += self.dx + screen_scroll[0]
+        self.rect.y += self.dy + screen_scroll[1]
 
-        self.forma.x += self.dx
-        self.forma.y += self.dy
+        # Verificar colisión con el jugador
+        if player.alive:
+            if self.rect.colliderect(player.forma):
+                if player.alive:
+                    player.salud -= 15  # Daño de la bola de fuego
+                    player.hit = True
+                    player.last_hit = pygame.time.get_ticks()
+                    self.kill()
+                    return True
+                
 
-        #Verificar si el proyectil ha salido de la pantalla
-        if self.forma.right < 0 or self.forma.left > cons.ANCHO_VENTANA or self.forma.bottom < 0 or self.forma.top > cons.ALTO_VENTANA:
+        # Verificar si la bola de fuego está fuera de la pantalla
+        if (self.rect.right < 0 or self.rect.left > cons.ANCHO_VENTANA or 
+            self.rect.bottom < 0 or self.rect.top > cons.ALTO_VENTANA):
             self.kill()
-
-        if player.forma.colliderect(self.forma) and player.hit == False:
-            player.hit = True
-            player.last_shot = pygame.time.get_ticks()
-            player.salud -= 20
-            self.kill()
+            return False
+        return False
 
 
         #Gestionar las colisiones entre la flecha y los enemigos
     def draw(self,surface):
-        surface.blit(self.imagen, ((self.forma.centerx - int(self.imagen.get_width()/2)),self.forma.centery - int(self.imagen.get_height()/2)))
+        surface.blit(self.image, self.rect)
 
 
 
